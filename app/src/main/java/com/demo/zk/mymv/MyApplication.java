@@ -8,6 +8,7 @@ import android.content.res.Resources;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiManager;
+import android.os.Bundle;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 
@@ -19,6 +20,9 @@ import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.Cache;
 import java.io.File;
 import java.io.IOException;
+import android.support.multidex.MultiDex;
+
+import cn.vbyte.p2p.VbyteP2PModule;
 
 /**
  * ClassName:com.demo.zk.mymv
@@ -39,6 +43,19 @@ public class MyApplication extends Application {
     public static IFactory factory = null;
     public static M3UServer m3userver;
 
+
+    // 初始化VbyteP2PModule的相关变量，这是Android sample的样例
+    final String APP_ID = "57d3c04bdc82e0f10e4502a4";
+    final String APP_KEY = "8i10Evtd3uXtSCsL";
+    final String APP_SECRET = "0PwFrv4OT77TNDRyjRyu5dkDNQEdmQ8I";
+
+
+    @Override
+    protected void attachBaseContext(Context context) {
+        super.attachBaseContext(context);
+        MultiDex.install(this);
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -55,9 +72,14 @@ public class MyApplication extends Application {
             upnpServiceController = factory.createUpnpServiceController(this);
 
         try {
+            // 初始化P2P模块
+           VbyteP2PModule.create(this.getBaseContext(), APP_ID, APP_KEY, APP_SECRET);
+
             m3userver = new M3UServer();
             m3userver.start();
         } catch (IOException e) {
+            e.printStackTrace();
+        } catch (Exception e) {
             e.printStackTrace();
         }
 

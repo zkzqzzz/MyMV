@@ -15,7 +15,10 @@
  */
 package com.demo.zk.mymv.player;
 
-import com.demo.zk.mymv.player.DemoPlayer;
+import android.content.Context;
+import android.media.AudioManager;
+import android.media.MediaCodec;
+import android.os.Handler;
 import com.google.android.exoplayer.DefaultLoadControl;
 import com.google.android.exoplayer.LoadControl;
 import com.google.android.exoplayer.MediaCodecAudioTrackRenderer;
@@ -26,8 +29,8 @@ import com.google.android.exoplayer.audio.AudioCapabilities;
 import com.google.android.exoplayer.chunk.ChunkSampleSource;
 import com.google.android.exoplayer.chunk.ChunkSource;
 import com.google.android.exoplayer.chunk.FormatEvaluator.AdaptiveEvaluator;
-import com.demo.zk.mymv.player.DemoPlayer.RendererBuilder;
 import com.google.android.exoplayer.drm.DrmSessionManager;
+import com.google.android.exoplayer.drm.FrameworkMediaCrypto;
 import com.google.android.exoplayer.drm.MediaDrmCallback;
 import com.google.android.exoplayer.drm.StreamingDrmSessionManager;
 import com.google.android.exoplayer.drm.UnsupportedDrmException;
@@ -43,18 +46,12 @@ import com.google.android.exoplayer.upstream.DefaultHttpDataSource;
 import com.google.android.exoplayer.upstream.DefaultUriDataSource;
 import com.google.android.exoplayer.util.ManifestFetcher;
 import com.google.android.exoplayer.util.Util;
-
-import android.content.Context;
-import android.media.AudioManager;
-import android.media.MediaCodec;
-import android.os.Handler;
-
 import java.io.IOException;
 
 /**
- * A {@link RendererBuilder} for SmoothStreaming.
+ * A {@link DemoPlayer.RendererBuilder} for SmoothStreaming.
  */
-public class SmoothStreamingRendererBuilder implements RendererBuilder {
+public class SmoothStreamingRendererBuilder implements DemoPlayer.RendererBuilder {
 
   private static final int BUFFER_SEGMENT_SIZE = 64 * 1024;
   private static final int VIDEO_BUFFER_SEGMENTS = 200;
@@ -70,7 +67,7 @@ public class SmoothStreamingRendererBuilder implements RendererBuilder {
   private AsyncRendererBuilder currentAsyncBuilder;
 
   public SmoothStreamingRendererBuilder(Context context, String userAgent, String url,
-      MediaDrmCallback drmCallback) {
+                                        MediaDrmCallback drmCallback) {
     this.context = context;
     this.userAgent = userAgent;
     this.url = Util.toLowerInvariant(url).endsWith("/manifest") ? url : url + "/Manifest";
@@ -92,7 +89,7 @@ public class SmoothStreamingRendererBuilder implements RendererBuilder {
   }
 
   private static final class AsyncRendererBuilder
-      implements ManifestFetcher.ManifestCallback<SmoothStreamingManifest> {
+          implements ManifestFetcher.ManifestCallback<SmoothStreamingManifest> {
 
     private final Context context;
     private final String userAgent;
@@ -103,14 +100,14 @@ public class SmoothStreamingRendererBuilder implements RendererBuilder {
     private boolean canceled;
 
     public AsyncRendererBuilder(Context context, String userAgent, String url,
-        MediaDrmCallback drmCallback, DemoPlayer player) {
+                                MediaDrmCallback drmCallback, DemoPlayer player) {
       this.context = context;
       this.userAgent = userAgent;
       this.drmCallback = drmCallback;
       this.player = player;
       SmoothStreamingManifestParser parser = new SmoothStreamingManifestParser();
       manifestFetcher = new ManifestFetcher<>(url, new DefaultHttpDataSource(userAgent, null),
-          parser);
+              parser);
     }
 
     public void init() {
@@ -141,16 +138,17 @@ public class SmoothStreamingRendererBuilder implements RendererBuilder {
       DefaultBandwidthMeter bandwidthMeter = new DefaultBandwidthMeter(mainHandler, player);
 
       // Check drm support if necessary.
-      DrmSessionManager drmSessionManager = null;
+      DrmSessionManager<FrameworkMediaCrypto> drmSessionManager = null;
       if (manifest.protectionElement != null) {
         if (Util.SDK_INT < 18) {
           player.onRenderersError(
-              new UnsupportedDrmException(UnsupportedDrmException.REASON_UNSUPPORTED_SCHEME));
+                  new UnsupportedDrmException(UnsupportedDrmException.REASON_UNSUPPORTED_SCHEME));
           return;
         }
         try {
-          drmSessionManager = new StreamingDrmSessionManager(manifest.protectionElement.uuid,
-              player.getPlaybackLooper(), drmCallback, null, player.getMainHandler(), player);
+          drmSessionManager = StreamingDrmSessionManager.newFrameworkInstance(
+                  manifest.protectionElement.uuid, player.getPlaybackLooper(), drmCallback, null,
+                  player.getMainHandler(), player);
         } catch (UnsupportedDrmException e) {
           player.onRenderersError(e);
           return;
@@ -160,37 +158,37 @@ public class SmoothStreamingRendererBuilder implements RendererBuilder {
       // Build the video renderer.
       DataSource videoDataSource = new DefaultUriDataSource(context, bandwidthMeter, userAgent);
       ChunkSource videoChunkSource = new SmoothStreamingChunkSource(manifestFetcher,
-          DefaultSmoothStreamingTrackSelector.newVideoInstance(context, true, false),
-          videoDataSource, new AdaptiveEvaluator(bandwidthMeter), LIVE_EDGE_LATENCY_MS);
+              DefaultSmoothStreamingTrackSelector.newVideoInstance(context, true, false),
+              videoDataSource, new AdaptiveEvaluator(bandwidthMeter), LIVE_EDGE_LATENCY_MS);
       ChunkSampleSource videoSampleSource = new ChunkSampleSource(videoChunkSource, loadControl,
-          VIDEO_BUFFER_SEGMENTS * BUFFER_SEGMENT_SIZE, mainHandler, player,
-          DemoPlayer.TYPE_VIDEO);
+              VIDEO_BUFFER_SEGMENTS * BUFFER_SEGMENT_SIZE, mainHandler, player,
+              DemoPlayer.TYPE_VIDEO);
       TrackRenderer videoRenderer = new MediaCodecVideoTrackRenderer(context, videoSampleSource,
-          MediaCodecSelector.DEFAULT, MediaCodec.VIDEO_SCALING_MODE_SCALE_TO_FIT, 5000,
-          drmSessionManager, true, mainHandler, player, 50);
+              MediaCodecSelector.DEFAULT, MediaCodec.VIDEO_SCALING_MODE_SCALE_TO_FIT, 5000,
+              drmSessionManager, true, mainHandler, player, 50);
 
       // Build the audio renderer.
       DataSource audioDataSource = new DefaultUriDataSource(context, bandwidthMeter, userAgent);
       ChunkSource audioChunkSource = new SmoothStreamingChunkSource(manifestFetcher,
-          DefaultSmoothStreamingTrackSelector.newAudioInstance(),
-          audioDataSource, null, LIVE_EDGE_LATENCY_MS);
+              DefaultSmoothStreamingTrackSelector.newAudioInstance(),
+              audioDataSource, null, LIVE_EDGE_LATENCY_MS);
       ChunkSampleSource audioSampleSource = new ChunkSampleSource(audioChunkSource, loadControl,
-          AUDIO_BUFFER_SEGMENTS * BUFFER_SEGMENT_SIZE, mainHandler, player,
-          DemoPlayer.TYPE_AUDIO);
+              AUDIO_BUFFER_SEGMENTS * BUFFER_SEGMENT_SIZE, mainHandler, player,
+              DemoPlayer.TYPE_AUDIO);
       TrackRenderer audioRenderer = new MediaCodecAudioTrackRenderer(audioSampleSource,
-          MediaCodecSelector.DEFAULT, drmSessionManager, true, mainHandler, player,
-          AudioCapabilities.getCapabilities(context), AudioManager.STREAM_MUSIC);
+              MediaCodecSelector.DEFAULT, drmSessionManager, true, mainHandler, player,
+              AudioCapabilities.getCapabilities(context), AudioManager.STREAM_MUSIC);
 
       // Build the text renderer.
       DataSource textDataSource = new DefaultUriDataSource(context, bandwidthMeter, userAgent);
       ChunkSource textChunkSource = new SmoothStreamingChunkSource(manifestFetcher,
-          DefaultSmoothStreamingTrackSelector.newTextInstance(),
-          textDataSource, null, LIVE_EDGE_LATENCY_MS);
+              DefaultSmoothStreamingTrackSelector.newTextInstance(),
+              textDataSource, null, LIVE_EDGE_LATENCY_MS);
       ChunkSampleSource textSampleSource = new ChunkSampleSource(textChunkSource, loadControl,
-          TEXT_BUFFER_SEGMENTS * BUFFER_SEGMENT_SIZE, mainHandler, player,
-          DemoPlayer.TYPE_TEXT);
+              TEXT_BUFFER_SEGMENTS * BUFFER_SEGMENT_SIZE, mainHandler, player,
+              DemoPlayer.TYPE_TEXT);
       TrackRenderer textRenderer = new TextTrackRenderer(textSampleSource, player,
-          mainHandler.getLooper());
+              mainHandler.getLooper());
 
       // Invoke the callback.
       TrackRenderer[] renderers = new TrackRenderer[DemoPlayer.RENDERER_COUNT];

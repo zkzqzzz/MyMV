@@ -42,4 +42,10 @@
     <declare-styleable name="ScrimInsetsView">
         <attr name="insetForeground" format="reference|color" />
     </declare-styleable>
+
+    <attr name="entrySummaries" format="reference" />
+
+    <declare-styleable name="IjkListPreference">
+        <attr name="entrySummaries" />
+    </declare-styleable>
 </resources>

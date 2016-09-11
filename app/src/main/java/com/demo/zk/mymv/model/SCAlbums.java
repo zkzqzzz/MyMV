@@ -2,8 +2,6 @@ package com.demo.zk.mymv.model;
 
 import android.util.Log;
 
-import com.demo.zk.mymv.model.SCAlbum;
-
 import java.util.ArrayList;
 
 /**

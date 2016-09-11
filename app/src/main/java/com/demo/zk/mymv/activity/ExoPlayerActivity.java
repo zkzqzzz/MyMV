@@ -1,18 +1,3 @@
-/*
- * Copyright (C) 2014 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package com.demo.zk.mymv.activity;
 
 import com.demo.zk.mymv.R;
@@ -33,9 +18,12 @@ import com.google.android.exoplayer.MediaFormat;
 import com.google.android.exoplayer.audio.AudioCapabilities;
 import com.google.android.exoplayer.audio.AudioCapabilitiesReceiver;
 import com.google.android.exoplayer.drm.UnsupportedDrmException;
-import com.google.android.exoplayer.metadata.GeobMetadata;
-import com.google.android.exoplayer.metadata.PrivMetadata;
-import com.google.android.exoplayer.metadata.TxxxMetadata;
+import com.google.android.exoplayer.metadata.id3.ApicFrame;
+import com.google.android.exoplayer.metadata.id3.GeobFrame;
+import com.google.android.exoplayer.metadata.id3.Id3Frame;
+import com.google.android.exoplayer.metadata.id3.PrivFrame;
+import com.google.android.exoplayer.metadata.id3.TextInformationFrame;
+import com.google.android.exoplayer.metadata.id3.TxxxFrame;
 import com.google.android.exoplayer.text.CaptionStyleCompat;
 import com.google.android.exoplayer.text.Cue;
 import com.google.android.exoplayer.text.SubtitleLayout;
@@ -498,7 +486,7 @@ public class ExoPlayerActivity extends Activity implements SurfaceHolder.Callbac
                     buildBitrateString(format)), buildTrackIdString(format));
         } else if (MimeTypes.isAudio(format.mimeType)) {
             trackName = joinWithSeparator(joinWithSeparator(joinWithSeparator(buildLanguageString(format),
-                            buildAudioPropertyString(format)), buildBitrateString(format)),
+                    buildAudioPropertyString(format)), buildBitrateString(format)),
                     buildTrackIdString(format));
         } else {
             trackName = joinWithSeparator(joinWithSeparator(buildLanguageString(format),
@@ -565,25 +553,30 @@ public class ExoPlayerActivity extends Activity implements SurfaceHolder.Callbac
     }
 
     // DemoPlayer.MetadataListener implementation
-
     @Override
-    public void onId3Metadata(Map<String, Object> metadata) {
-        for (Map.Entry<String, Object> entry : metadata.entrySet()) {
-            if (TxxxMetadata.TYPE.equals(entry.getKey())) {
-                TxxxMetadata txxxMetadata = (TxxxMetadata) entry.getValue();
-                Log.i(TAG, String.format("ID3 TimedMetadata %s: description=%s, value=%s",
-                        TxxxMetadata.TYPE, txxxMetadata.description, txxxMetadata.value));
-            } else if (PrivMetadata.TYPE.equals(entry.getKey())) {
-                PrivMetadata privMetadata = (PrivMetadata) entry.getValue();
-                Log.i(TAG, String.format("ID3 TimedMetadata %s: owner=%s",
-                        PrivMetadata.TYPE, privMetadata.owner));
-            } else if (GeobMetadata.TYPE.equals(entry.getKey())) {
-                GeobMetadata geobMetadata = (GeobMetadata) entry.getValue();
+    public void onId3Metadata(List<Id3Frame> id3Frames) {
+        for (Id3Frame id3Frame : id3Frames) {
+            if (id3Frame instanceof TxxxFrame) {
+                TxxxFrame txxxFrame = (TxxxFrame) id3Frame;
+                Log.i(TAG, String.format("ID3 TimedMetadata %s: description=%s, value=%s", txxxFrame.id,
+                        txxxFrame.description, txxxFrame.value));
+            } else if (id3Frame instanceof PrivFrame) {
+                PrivFrame privFrame = (PrivFrame) id3Frame;
+                Log.i(TAG, String.format("ID3 TimedMetadata %s: owner=%s", privFrame.id, privFrame.owner));
+            } else if (id3Frame instanceof GeobFrame) {
+                GeobFrame geobFrame = (GeobFrame) id3Frame;
                 Log.i(TAG, String.format("ID3 TimedMetadata %s: mimeType=%s, filename=%s, description=%s",
-                        GeobMetadata.TYPE, geobMetadata.mimeType, geobMetadata.filename,
-                        geobMetadata.description));
+                        geobFrame.id, geobFrame.mimeType, geobFrame.filename, geobFrame.description));
+            } else if (id3Frame instanceof ApicFrame) {
+                ApicFrame apicFrame = (ApicFrame) id3Frame;
+                Log.i(TAG, String.format("ID3 TimedMetadata %s: mimeType=%s, description=%s",
+                        apicFrame.id, apicFrame.mimeType, apicFrame.description));
+            } else if (id3Frame instanceof TextInformationFrame) {
+                TextInformationFrame textInformationFrame = (TextInformationFrame) id3Frame;
+                Log.i(TAG, String.format("ID3 TimedMetadata %s: description=%s", textInformationFrame.id,
+                        textInformationFrame.description));
             } else {
-                Log.i(TAG, String.format("ID3 TimedMetadata %s", entry.getKey()));
+                Log.i(TAG, String.format("ID3 TimedMetadata %s", id3Frame.id));
             }
         }
     }
@@ -696,11 +689,11 @@ public class ExoPlayerActivity extends Activity implements SurfaceHolder.Callbac
     }
 
 
-        public static void launch(Activity fromActivity, SCVideo video, String url) {
+    public static void launch(Activity fromActivity, SCVideo video, String url) {
         Intent mpdIntent = new Intent(fromActivity, ExoPlayerActivity.class)
                 .setData(Uri.parse(url))
                 .putExtra(ExoPlayerActivity.CONTENT_TYPE_EXTRA, Util.TYPE_HLS);
-            Log.d("fire3","now playing " + url);
+        Log.d("fire3","now playing " + url);
         fromActivity.startActivity(mpdIntent);
     }
 
